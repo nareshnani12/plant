@@ -80,7 +80,7 @@ Format the response in a clear and structured way.
 """
 
                 # Use lightweight stable Gemini model
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel("gemini-2.0-flash")
 
                 # Retry mechanism for 429 or transient errors
                 for attempt in range(3):
@@ -126,3 +126,4 @@ if st.session_state.reset_triggered:
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
+
