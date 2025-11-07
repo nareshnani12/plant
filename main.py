@@ -12,7 +12,10 @@ genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
 # ---------------- TITLE ----------------
 st.title("🌿 AI-Based Plant Disease Identification System")
-st.markdown("Upload or capture a leaf image to detect the plant disease, get remedies, precautions, and analysis.")
+st.markdown(
+    "Upload or capture a leaf image to detect the plant disease, get remedies, "
+    "precautions, and analysis."
+)
 
 # ---------------- SESSION STATE ----------------
 if "uploaded_image" not in st.session_state:
@@ -24,16 +27,16 @@ if "camera_active" not in st.session_state:
 if "reset_triggered" not in st.session_state:
     st.session_state.reset_triggered = False
 if "uploader_key" not in st.session_state:
-    st.session_state.uploader_key = 0  # to force uploader refresh
+    st.session_state.uploader_key = 0  # for forcing uploader refresh
 
 # ---------------- IMAGE INPUT SECTION ----------------
 st.header("📸 Upload or Capture Leaf Image")
 
-# Upload file with dynamic key (for full reset)
+# Upload file with dynamic key
 uploaded_file = st.file_uploader(
     "Upload a clear image of the affected leaf",
     type=["jpg", "jpeg", "png"],
-    key=f"uploader_{st.session_state.uploader_key}"
+    key=f"uploader_{st.session_state.uploader_key}",
 )
 
 # Camera toggle
@@ -45,14 +48,14 @@ if st.session_state.camera_active:
     st.info("Click the **round capture button** below to take a photo.")
     camera_input = st.camera_input("Capture image here")
     if camera_input is not None:
-        # Clear previous uploaded file when camera used
+        # Clear previous uploaded file when using camera
         uploaded_file = None
         st.session_state.uploaded_image = Image.open(camera_input)
         st.session_state.camera_active = False  # Auto close camera
 else:
     camera_input = None
 
-# Handle uploaded file (only if not camera input)
+# Handle uploaded file (if not using camera)
 if uploaded_file is not None:
     st.session_state.uploaded_image = Image.open(uploaded_file)
 
@@ -105,6 +108,7 @@ Format the response in a clear and structured way.
                         else:
                             raise e
 
+                # Store and display response
                 st.session_state.analysis_result = response.text
                 st.subheader("🌾 Disease Detection & Analysis Report")
                 st.markdown(st.session_state.analysis_result)
@@ -114,7 +118,7 @@ Format the response in a clear and structured way.
                     label="📥 Download Report",
                     data=st.session_state.analysis_result,
                     file_name="plant_disease_analysis.txt",
-                    mime="text/plain"
+                    mime="text/plain",
                 )
 
             except Exception as e:
@@ -126,10 +130,19 @@ def trigger_reset():
 
 st.button("🔄 Reset", on_click=trigger_reset)
 
-# Handle reset outside callback
+# Handle reset outside callback (safe rerun)
 if st.session_state.reset_triggered:
     time.sleep(0.2)
+
+    # Preserve uploader key before clearing everything
+    uploader_key = st.session_state.get("uploader_key", 0) + 1
+
+    # Clear all session variables safely
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.session_state.uploader_key += 1  # Refresh uploader key
+
+    # Restore updated uploader key
+    st.session_state["uploader_key"] = uploader_key
+
+    # Rerun cleanly
     st.rerun()
