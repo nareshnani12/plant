@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import io
+import time
 
 # ---------------- CONFIGURATION ----------------
 st.set_page_config(page_title="AI Plant Disease Identifier", page_icon="🌿")
@@ -11,7 +12,7 @@ genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
 # ---------------- TITLE ----------------
 st.title("🌿 AI-Based Plant Disease Identification System")
-st.markdown("Upload or capture a leaf image to detect the plant disease and get remedies, precautions, and analysis.")
+st.markdown("Upload or capture a leaf image to detect the plant disease, get remedies, precautions, and analysis.")
 
 # ---------------- SESSION STATE ----------------
 if "uploaded_image" not in st.session_state:
@@ -20,28 +21,30 @@ if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = ""
 if "camera_active" not in st.session_state:
     st.session_state.camera_active = False
+if "reset_triggered" not in st.session_state:
+    st.session_state.reset_triggered = False
 
 # ---------------- IMAGE INPUT SECTION ----------------
 st.header("📸 Upload or Capture Leaf Image")
 
-# Upload from file
+# Upload file option
 uploaded_file = st.file_uploader("Upload a clear image of the affected leaf", type=["jpg", "jpeg", "png"])
 
-# Toggle camera on/off
+# Camera toggle
 if st.button("📷 Take Photo"):
     st.session_state.camera_active = not st.session_state.camera_active
 
-# Show camera only when active
+# Show camera when active
 if st.session_state.camera_active:
     st.info("Click the **round capture button** below to take a photo.")
     camera_input = st.camera_input("Capture image here")
     if camera_input is not None:
         st.session_state.uploaded_image = Image.open(camera_input)
-        st.session_state.camera_active = False  # Auto close camera after capture
+        st.session_state.camera_active = False  # Auto-close camera after capture
 else:
     camera_input = None
 
-# If uploaded from file
+# Handle uploaded file
 if uploaded_file is not None:
     st.session_state.uploaded_image = Image.open(uploaded_file)
 
@@ -76,20 +79,30 @@ Analyze the given leaf image and identify:
 Format the response in a clear and structured way.
 """
 
-                # Use correct Gemini model
-                model = genai.GenerativeModel("gemini-2.0-flash")
-                response = model.generate_content([
-                    prompt,
-                    {"mime_type": "image/png", "data": img_bytes}
-                ])
+                # Use lightweight stable Gemini model
+                model = genai.GenerativeModel("gemini-1.5-flash")
 
+                # Retry mechanism for 429 or transient errors
+                for attempt in range(3):
+                    try:
+                        response = model.generate_content([
+                            prompt,
+                            {"mime_type": "image/png", "data": img_bytes}
+                        ])
+                        break
+                    except Exception as e:
+                        if "429" in str(e):
+                            st.warning("⚠️ API rate limit reached. Retrying in 10 seconds...")
+                            time.sleep(10)
+                        else:
+                            raise e
+
+                # Store and display response
                 st.session_state.analysis_result = response.text
-
-                # Display AI results
                 st.subheader("🌾 Disease Detection & Analysis Report")
                 st.markdown(st.session_state.analysis_result)
 
-                # Download button
+                # Download option
                 st.download_button(
                     label="📥 Download Report",
                     data=st.session_state.analysis_result,
@@ -101,12 +114,15 @@ Format the response in a clear and structured way.
                 st.error(f"⚠️ Error: {e}")
 
 # ---------------- RESET FUNCTION ----------------
-def reset_app():
-    """Completely reset all session variables and rerun app."""
+def trigger_reset():
+    st.session_state.reset_triggered = True
+
+st.button("🔄 Reset", on_click=trigger_reset)
+
+# Handle reset outside callback
+if st.session_state.reset_triggered:
+    # Delay slightly for clean rerun
+    time.sleep(0.2)
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
-
-st.button("🔄 Reset", on_click=reset_app)
-
-
