@@ -23,12 +23,18 @@ if "camera_active" not in st.session_state:
     st.session_state.camera_active = False
 if "reset_triggered" not in st.session_state:
     st.session_state.reset_triggered = False
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0  # to force uploader refresh
 
 # ---------------- IMAGE INPUT SECTION ----------------
 st.header("📸 Upload or Capture Leaf Image")
 
-# Upload file option
-uploaded_file = st.file_uploader("Upload a clear image of the affected leaf", type=["jpg", "jpeg", "png"])
+# Upload file with dynamic key (for full reset)
+uploaded_file = st.file_uploader(
+    "Upload a clear image of the affected leaf",
+    type=["jpg", "jpeg", "png"],
+    key=f"uploader_{st.session_state.uploader_key}"
+)
 
 # Camera toggle
 if st.button("📷 Take Photo"):
@@ -39,12 +45,14 @@ if st.session_state.camera_active:
     st.info("Click the **round capture button** below to take a photo.")
     camera_input = st.camera_input("Capture image here")
     if camera_input is not None:
+        # Clear previous uploaded file when camera used
+        uploaded_file = None
         st.session_state.uploaded_image = Image.open(camera_input)
-        st.session_state.camera_active = False  # Auto-close camera after capture
+        st.session_state.camera_active = False  # Auto close camera
 else:
     camera_input = None
 
-# Handle uploaded file
+# Handle uploaded file (only if not camera input)
 if uploaded_file is not None:
     st.session_state.uploaded_image = Image.open(uploaded_file)
 
@@ -79,10 +87,10 @@ Analyze the given leaf image and identify:
 Format the response in a clear and structured way.
 """
 
-                # Use lightweight stable Gemini model
+                # Use stable Gemini model
                 model = genai.GenerativeModel("gemini-2.0-flash")
 
-                # Retry mechanism for 429 or transient errors
+                # Retry mechanism for rate-limit issues
                 for attempt in range(3):
                     try:
                         response = model.generate_content([
@@ -97,7 +105,6 @@ Format the response in a clear and structured way.
                         else:
                             raise e
 
-                # Store and display response
                 st.session_state.analysis_result = response.text
                 st.subheader("🌾 Disease Detection & Analysis Report")
                 st.markdown(st.session_state.analysis_result)
@@ -121,9 +128,8 @@ st.button("🔄 Reset", on_click=trigger_reset)
 
 # Handle reset outside callback
 if st.session_state.reset_triggered:
-    # Delay slightly for clean rerun
     time.sleep(0.2)
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+    st.session_state.uploader_key += 1  # Refresh uploader key
     st.rerun()
-
