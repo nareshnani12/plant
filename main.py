@@ -77,7 +77,7 @@ Format the response in a clear and structured way.
 """
 
                 # Use correct Gemini model
-                model = genai.GenerativeModel("gemini-2.0-flash")
+                model = genai.GenerativeModel("gemini-1.0-flash")
                 response = model.generate_content([
                     prompt,
                     {"mime_type": "image/png", "data": img_bytes}
@@ -108,3 +108,4 @@ def reset_app():
     st.rerun()
 
 st.button("🔄 Reset", on_click=reset_app)
+
